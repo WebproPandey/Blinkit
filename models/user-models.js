@@ -1,35 +1,82 @@
-const express = require("express");
-const router = express.Router();
-const  passport=  require("passport")
-const { userModel , validateCategory } = require("../models/usermodel");
+const mongoose = require("mongoose");
+const Joi = require("joi");
 
-router.get("/login",(req,res)=>{
-   res.render("user_login")
-})
+// Mongoose Schema
+const AddressSchema = mongoose.Schema({
+    state: {
+        type: String,
+        required: true,
+        minlength: 2
+    },
+    city: {
+        type: String,
+        required: true,
+        minlength: 2
+    },
+    pin: {
+        type: Number,
+        required: true,
+        min: 10000, 
+        max: 999999 
+    },
+    address: {
+        type: String,
+        required: true,
+        minlength: 5
+    }
+});
 
-router.get("/profile" , (req,res)=>{
-    res.send("profile page")
- })
-  
+const userschema = mongoose.Schema({
+    name: {
+        type: String,
+        required: true,
+        minlength: 2
+    },
+    email: {
+        type: String,
+        required: true,
+        match: /.+\@.+\..+/ 
+    },
+    password: {
+        type: String,
+        minlength: 6
+    },
+    phone: {
+        type: Number,
+        match: /^[0-9]{10}$/
+    },
+    addresses:{
+     type:[AddressSchema],
+     validate: [arrayLimit , "{PATH} exceeds the limit of 5"]
+    }
+    
+}, { timestamps: true });
 
-router.get("/logout",(req,res , next )=>{
-    req.logout(function(err) {
-        if (err) {
-             return next(err)
-        }
-        req.session.destroy((err) =>{
-            if(err){
-                return console.log(err)
-            }
-            res.clearCookie('connect.sid');
-            res.redirect("/users/login")
-        })
-         
-   
-    }); 
+function arrayLimit(val){
+  return val.length <=5
+}
 
-})
- 
- 
 
-module.exports = router;
+const validateUser = (userData) => {
+    const schema = Joi.object({
+        name: Joi.string().min(2).required(),
+        email: Joi.string().email().required(),
+        password: Joi.string().min(6),
+        phone: Joi.string().pattern(/^[0-9]{10}$/),
+        addresses: Joi.array().items(
+            Joi.object({
+                state: Joi.string().min(2).required(),
+                city: Joi.string().min(2).required(),
+                pin: Joi.number().integer().min(100000).max(999999).required(),
+                address: Joi.string().min(5).required()
+            })
+        )
+    });
+
+    return schema.validate(userData);
+};
+
+module.exports = {
+   userModel:mongoose.model("user", userschema),
+  validateUser
+}
